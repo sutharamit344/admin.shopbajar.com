@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "qr_tables": {
+      "$shopId": {
+        ".read": true,
+        "$tableId": {
+          ".write": "auth != null",
+          "currentSessionId": {
+            ".write": true
+          }
+        }
+      }
+    },
+    "qr_sessions": {
+      "$shopId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "qr_orders": {
+      "$shopId": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}

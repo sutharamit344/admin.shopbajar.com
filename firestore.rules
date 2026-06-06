@@ -1,0 +1,173 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- HELPER FUNCTIONS ---
+    
+    // Admin check based on your verified emails
+    function isAdmin() {
+      return request.auth != null && 
+        (request.auth.token.email == 'sutharamit344@gmail.com' || 
+         request.auth.token.email == 'webiestindiasolution@gmail.com');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    function isShopOwner(shopId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
+    }
+
+    function isBillOwner(ownerId) {
+      return isSignedIn() && ownerId == request.auth.uid;
+    }
+
+    // --- COLLECTION RULES ---
+    
+    // Admin Verification (Canary Read)
+    match /meta/adminCheck {
+      allow read: if isAdmin();
+    }
+
+    // 1. Shops Management
+    match /shops/{shopId} {
+      // Public can see all shops for discovery.
+      allow read: if true;
+      
+      // Any signed-in user can create a shop
+      allow create: if isSignedIn();
+      
+      // Only owner or admin can update. Merchants cannot approve their own shop, nor modify their paid features.
+      allow update: if isAdmin() || 
+                    (isOwner(resource.data.ownerId) && 
+                     request.resource.data.status == resource.data.status &&
+                     (request.resource.data.paidFeatures == resource.data.paidFeatures || 
+                      (!('paidFeatures' in request.resource.data) && !('paidFeatures' in resource.data))));
+      
+      // Delete is restricted to Admins
+      allow delete: if isAdmin();
+
+      match /ratings/{ratingId} {
+        allow read: if true;
+        allow create: if isSignedIn() && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // 2. Master Data (Read: All, Write: Signed In)
+    match /categories/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /subcategories/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /countries/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /states/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /cities/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /areas/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /clusters/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /locations/{id} { allow read, write: if true; } // Public location cache
+
+    // 3. Marketing & Content
+    match /blogs/{id} { allow read: if true; allow write: if isSignedIn(); }
+
+    // 4. Inquiries & Logs
+    match /inquiries/{id} {
+      allow create: if request.resource.data.shopId != null &&
+                    get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures != null &&
+                    get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.dashboard_checkout != null &&
+                    get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.dashboard_checkout.enabled == true;
+      allow read: if isSignedIn() && (
+                    isAdmin() || 
+                    get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId == request.auth.uid ||
+                    resource.data.userId == request.auth.uid
+                  );
+      allow update: if isAdmin() ||
+                    (
+                      isShopOwner(resource.data.shopId) &&
+                      request.resource.data.keys().hasOnly([
+                        'shopId',
+                        'shopName',
+                        'shopPhone',
+                        'deviceId',
+                        'items',
+                        'totalAmount',
+                        'message',
+                        'type',
+                        'userId',
+                        'customerName',
+                        'customerPhone',
+                        'customerEmail',
+                        'status',
+                        'createdAt',
+                        'updatedAt'
+                      ]) &&
+                      request.resource.data.shopId == resource.data.shopId &&
+                      request.resource.data.shopName == resource.data.shopName &&
+                      request.resource.data.shopPhone == resource.data.shopPhone &&
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.deviceId == resource.data.deviceId &&
+                      request.resource.data.message == resource.data.message &&
+                      request.resource.data.type == resource.data.type &&
+                      request.resource.data.customerName == resource.data.customerName &&
+                      request.resource.data.customerPhone == resource.data.customerPhone &&
+                      request.resource.data.customerEmail == resource.data.customerEmail &&
+                      request.resource.data.createdAt == resource.data.createdAt &&
+                      request.resource.data.status in [
+                        'Submitted',
+                        'Reviewed',
+                        'Confirmed',
+                        'Completed',
+                        'Cancelled'
+                      ]
+                    );
+      allow delete: if isAdmin();
+    }
+    
+    match /activity_logs/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() || request.resource.data.action in ['INQUIRY', 'RATING', 'RATING_SUBMITTED', 'REVIEW_SUBMITTED'];
+      allow update, delete: if isAdmin();
+    }
+
+    match /bills/{id} {
+      allow create: if isSignedIn() &&
+                    request.resource.data.shopId != null &&
+                    request.resource.data.ownerId == request.auth.uid &&
+                    isShopOwner(request.resource.data.shopId) &&
+                    (
+                      (
+                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.invoice_tools != null &&
+                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.invoice_tools.enabled == true
+                      ) ||
+                      (
+                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.pos_slip_tools != null &&
+                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.pos_slip_tools.enabled == true
+                      )
+                    );
+      allow read: if isAdmin() || isBillOwner(resource.data.ownerId) || isShopOwner(resource.data.shopId);
+      allow update: if isAdmin() ||
+                    (
+                      (isBillOwner(resource.data.ownerId) || isShopOwner(resource.data.shopId)) &&
+                      request.resource.data.shopId == resource.data.shopId &&
+                      request.resource.data.ownerId == resource.data.ownerId &&
+                      request.resource.data.createdAt == resource.data.createdAt
+                    );
+      allow delete: if isAdmin() || isBillOwner(resource.data.ownerId) || isShopOwner(resource.data.shopId);
+    }
+
+    // 5. User Profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // 6. SaaS Features Master (Read: All, Write: Signed In)
+    match /features/{id} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+  }
+}
