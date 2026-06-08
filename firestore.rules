@@ -60,18 +60,18 @@ service cloud.firestore {
       }
     }
 
-    // 2. Master Data (Read: All, Write: Signed In)
-    match /categories/{id} { allow read: if true; allow write: if isSignedIn(); }
-    match /subcategories/{id} { allow read: if true; allow write: if isSignedIn(); }
-    match /countries/{id} { allow read: if true; allow write: if isSignedIn(); }
-    match /states/{id} { allow read: if true; allow write: if isSignedIn(); }
-    match /cities/{id} { allow read: if true; allow write: if isSignedIn(); }
-    match /areas/{id} { allow read: if true; allow write: if isSignedIn(); }
-    match /clusters/{id} { allow read: if true; allow write: if isSignedIn(); }
+    // 2. Master Data (Read: All, Write: Admin Only)
+    match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /subcategories/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /countries/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /states/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /cities/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /areas/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /clusters/{id} { allow read: if true; allow write: if isAdmin(); }
     match /locations/{id} { allow read, write: if true; } // Public location cache
 
     // 3. Marketing & Content
-    match /blogs/{id} { allow read: if true; allow write: if isSignedIn(); }
+    match /blogs/{id} { allow read: if true; allow write: if isAdmin(); }
 
     // 4. Inquiries & Logs
     match /inquiries/{id} {
@@ -164,10 +164,10 @@ service cloud.firestore {
       allow write: if isOwner(userId) || isAdmin();
     }
 
-    // 6. SaaS Features Master (Read: All, Write: Signed In)
+    // 6. SaaS Features Master (Read: All, Write: Admin Only)
     match /features/{id} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }
