@@ -1,17 +1,38 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow public read access to all shop images
+    // Allow public read access to all images
     allow read: if true;
     
-    // Restrict writes to specific user and shop folders
-    match /users/{userId}/{allPaths=**} {
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // Check if the user is an admin
+    function isAdmin() {
+      return request.auth != null && 
+        (request.auth.token.email == 'sutharamit344@gmail.com' || 
+         request.auth.token.email == 'webiestindiasolution@gmail.com');
     }
     
+    // Restrict writes to specific user folders
+    match /users/{userId}/{allPaths=**} {
+      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+    }
+    
+    // Allow write access to shop folder during creation (if document doesn't exist yet)
+    // or if the authenticated user is the owner of the shop, or is an admin.
     match /shops/{shopId}/{allPaths=**} {
       allow write: if request.auth != null && 
-        firestore.get(/databases/(default)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
+        (!firestore.exists(/databases/(default)/documents/shops/$(shopId)) || 
+         firestore.get(/databases/(default)/documents/shops/$(shopId)).data.ownerId == request.auth.uid ||
+         isAdmin());
+    }
+
+    // Allow authenticated users to upload to uploads/ folder (menu items, photo galleries, etc.)
+    match /uploads/{allPaths=**} {
+      allow write: if request.auth != null;
+    }
+
+    // Allow admins to upload to blogs/ folder
+    match /blogs/{allPaths=**} {
+      allow write: if isAdmin();
     }
   }
 }
