@@ -23,7 +23,7 @@ export const Header: React.FC = () => {
     try {
       await dispatch(logout()).unwrap();
       navigate("/login");
-    } catch (error) {
+    } catch {
       toast.error("Logout failed");
     }
   };

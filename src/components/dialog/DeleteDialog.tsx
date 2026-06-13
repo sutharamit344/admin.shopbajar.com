@@ -19,15 +19,15 @@ export interface DeleteDialogProps extends Omit<AppDialogProps, "type"> {
 }
 
 export const DeleteDialog: React.FC<DeleteDialogProps> = ({
-  onClose,
+  onClose: _onClose,
   onConfirm,
   onCancel,
   title,
   description,
-  itemName,
+  itemName: _itemName,
   itemType = "item",
   isDeleting = false,
-  showItemDetails = true,
+  showItemDetails: _showItemDetails = true,
   itemDetails,
   warningMessage,
   confirmText = "Delete",

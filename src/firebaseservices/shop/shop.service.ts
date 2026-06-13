@@ -144,7 +144,8 @@ export const shopService = {
   async updateShop(id: string, data: Partial<Shop>): Promise<{ success: boolean; error?: any }> {
     try {
       const docRef = doc(db, COLLECTION_NAME, id);
-      const { id: _, ...safeData } = data;
+      const safeData = { ...data };
+      delete safeData.id;
       await updateDoc(docRef, {
         ...safeData,
         updatedAt: serverTimestamp(),
@@ -244,5 +245,30 @@ export const shopService = {
       console.error("Error getting approved shops incrementally:", error);
       return { shops: [], lastVisibleDoc: null, hasMore: false, totalCount: 0 };
     }
+  },
+
+  /**
+   * Checks if a shop slug is available. Excludes the current shop ID when editing.
+   */
+  async isSlugAvailable(slug: string, currentShopId?: string | null): Promise<boolean> {
+    if (!slug || slug.trim() === "") return false;
+    try {
+      const cleanSlug = slug.trim().toLowerCase();
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where("slug", "==", cleanSlug)
+      );
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) return true;
+      if (currentShopId) {
+        const otherMatches = querySnapshot.docs.filter((doc) => doc.id !== currentShopId);
+        return otherMatches.length === 0;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking slug availability:", error);
+      return false;
+    }
   }
 };
+

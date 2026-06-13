@@ -44,7 +44,7 @@ export const authService = {
       const docRef = doc(db, "meta", "adminCheck");
       await getDoc(docRef);
       return true;
-    } catch (error) {
+    } catch {
       // Permission denied = not an admin
       return false;
     }

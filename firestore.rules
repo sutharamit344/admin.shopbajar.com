@@ -21,7 +21,7 @@ service cloud.firestore {
 
     function isShopOwner(shopId) {
       return isSignedIn() &&
-        get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
+        get(/databases/$(database)/documents/shops/$(shopId)).data.get('ownerId', null) == request.auth.uid;
     }
 
     function isBillOwner(ownerId) {
@@ -45,10 +45,9 @@ service cloud.firestore {
       
       // Only owner or admin can update. Merchants cannot approve their own shop, nor modify their paid features.
       allow update: if isAdmin() || 
-                    (isOwner(resource.data.ownerId) && 
-                     request.resource.data.status == resource.data.status &&
-                     (request.resource.data.paidFeatures == resource.data.paidFeatures || 
-                      (!('paidFeatures' in request.resource.data) && !('paidFeatures' in resource.data))));
+                    (isOwner(resource.data.get('ownerId', null)) && 
+                     request.resource.data.get('status', null) == resource.data.get('status', null) &&
+                     request.resource.data.get('paidFeatures', null) == resource.data.get('paidFeatures', null));
       
       // Delete is restricted to Admins
       allow delete: if isAdmin();
@@ -76,13 +75,11 @@ service cloud.firestore {
     // 4. Inquiries & Logs
     match /inquiries/{id} {
       allow create: if request.resource.data.shopId != null &&
-                    get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures != null &&
-                    get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.dashboard_checkout != null &&
-                    get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.dashboard_checkout.enabled == true;
+                    get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.get('paidFeatures', {}).get('dashboard_checkout', {}).get('enabled', false) == true;
       allow read: if isSignedIn() && (
                     isAdmin() || 
-                    get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId == request.auth.uid ||
-                    resource.data.userId == request.auth.uid
+                    get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.get('ownerId', null) == request.auth.uid ||
+                    resource.data.get('userId', null) == request.auth.uid
                   );
       allow update: if isAdmin() ||
                     (
@@ -135,27 +132,21 @@ service cloud.firestore {
     match /bills/{id} {
       allow create: if isSignedIn() &&
                     request.resource.data.shopId != null &&
-                    request.resource.data.ownerId == request.auth.uid &&
+                    request.resource.data.get('ownerId', null) == request.auth.uid &&
                     isShopOwner(request.resource.data.shopId) &&
                     (
-                      (
-                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.invoice_tools != null &&
-                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.invoice_tools.enabled == true
-                      ) ||
-                      (
-                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.pos_slip_tools != null &&
-                        get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.paidFeatures.pos_slip_tools.enabled == true
-                      )
+                      get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.get('paidFeatures', {}).get('invoice_tools', {}).get('enabled', false) == true ||
+                      get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.get('paidFeatures', {}).get('pos_slip_tools', {}).get('enabled', false) == true
                     );
-      allow read: if isAdmin() || isBillOwner(resource.data.ownerId) || isShopOwner(resource.data.shopId);
+      allow read: if isAdmin() || isBillOwner(resource.data.get('ownerId', null)) || isShopOwner(resource.data.get('shopId', null));
       allow update: if isAdmin() ||
                     (
-                      (isBillOwner(resource.data.ownerId) || isShopOwner(resource.data.shopId)) &&
-                      request.resource.data.shopId == resource.data.shopId &&
-                      request.resource.data.ownerId == resource.data.ownerId &&
-                      request.resource.data.createdAt == resource.data.createdAt
+                      (isBillOwner(resource.data.get('ownerId', null)) || isShopOwner(resource.data.get('shopId', null))) &&
+                      request.resource.data.get('shopId', null) == resource.data.get('shopId', null) &&
+                      request.resource.data.get('ownerId', null) == resource.data.get('ownerId', null) &&
+                      request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
                     );
-      allow delete: if isAdmin() || isBillOwner(resource.data.ownerId) || isShopOwner(resource.data.shopId);
+      allow delete: if isAdmin() || isBillOwner(resource.data.get('ownerId', null)) || isShopOwner(resource.data.get('shopId', null));
     }
 
     // 5. User Profiles

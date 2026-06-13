@@ -30,6 +30,7 @@ import {
   TruckIcon,
 } from "@heroicons/react/24/outline";
 import { slugify } from "../../utils/helper";
+import { shopService } from "../../firebaseservices/shop/shop.service";
 import { fetchAllLocations } from "../../store/locationSlice";
 import { fetchAllClusters } from "../clusters/clusterSlice";
 import { fetchAllFeatures } from "../features/featureSlice";
@@ -62,6 +63,9 @@ export const AddShopPage: React.FC = () => {
   const { categories } = useAppSelector((state) => state.categories);
   const { clusters } = useAppSelector((state) => state.clusters);
   const { features } = useAppSelector((state) => state.features);
+  
+  const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [isSlugCustom, setIsSlugCustom] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAllLocations());
@@ -136,6 +140,19 @@ export const AddShopPage: React.FC = () => {
     },
     validationSchema,
     onSubmit: async (values) => {
+      if (slugStatus === "taken") {
+        alert("This shop URL is already taken. Please choose another one.");
+        return;
+      }
+      if (slugStatus === "invalid") {
+        alert("Invalid URL slug. Only lowercase letters, numbers, and hyphens are allowed.");
+        return;
+      }
+      if (slugStatus === "checking") {
+        alert("Checking URL availability... Please wait.");
+        return;
+      }
+
       if (isEdit && id) {
         const result = await dispatch(
           updateShopAction({ id, data: values as any }),
@@ -202,10 +219,38 @@ export const AddShopPage: React.FC = () => {
             paidFeatures: shop.paidFeatures || {},
             menu: Array.isArray(shop.menu) ? shop.menu : [],
           });
+          if (shop.slug) setIsSlugCustom(true);
         }
       });
     }
   }, [id, isEdit, dispatch]);
+
+  // Debounced slug availability check
+  useEffect(() => {
+    if (!formik.values.slug || formik.values.slug.trim() === "") {
+      setSlugStatus("idle");
+      return;
+    }
+
+    const cleanSlug = formik.values.slug.trim().toLowerCase();
+    if (!/^[a-z0-9-]+$/.test(cleanSlug)) {
+      setSlugStatus("invalid");
+      return;
+    }
+
+    setSlugStatus("checking");
+
+    const timer = setTimeout(async () => {
+      const isAvailable = await shopService.isSlugAvailable(cleanSlug, isEdit ? id : null);
+      if (isAvailable) {
+        setSlugStatus("available");
+      } else {
+        setSlugStatus("taken");
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [formik.values.slug, isEdit, id]);
 
   // Hierarchical filtering logic
   const countryOptions = countries.map((c) => ({
@@ -295,7 +340,7 @@ export const AddShopPage: React.FC = () => {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     formik.setFieldValue("name", name);
-    if (!formik.touched.slug) {
+    if (!isSlugCustom && !isEdit) {
       formik.setFieldValue("slug", slugify(name));
     }
   };
@@ -581,12 +626,27 @@ export const AddShopPage: React.FC = () => {
                     name="slug"
                     placeholder="shop-slug-name"
                     value={formik.values.slug}
-                    onChange={formik.handleChange}
+                    onChange={(e) => {
+                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+                      setIsSlugCustom(val !== "");
+                      formik.setFieldValue("slug", val);
+                    }}
                     onBlur={formik.handleBlur}
                     error={
                       formik.touched.slug && formik.errors.slug
                         ? formik.errors.slug
+                        : slugStatus === "taken"
+                        ? "This shop URL is already taken"
+                        : slugStatus === "invalid"
+                        ? "Only lowercase letters, numbers, and hyphens allowed"
                         : ""
+                    }
+                    helperText={
+                      slugStatus === "checking"
+                        ? "Checking availability..."
+                        : slugStatus === "available"
+                        ? "✓ URL is available"
+                        : undefined
                     }
                     required
                   />

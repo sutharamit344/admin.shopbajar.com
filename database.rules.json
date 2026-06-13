@@ -14,13 +14,24 @@
     "qr_sessions": {
       "$shopId": {
         ".read": true,
-        ".write": true
+        "$sessionId": {
+          ".write": "data.val() == null || data.child('status').val() === 'pending' || data.child('status').val() === 'active' || newData.child('status').val() === 'closed' || newData.child('status').val() === 'rejected'",
+          "guests": {
+            "$guestId": {
+              ".write": "root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'active' || root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'pending'"
+            }
+          }
+        }
       }
     },
     "qr_orders": {
       "$shopId": {
-        ".read": true,
-        ".write": true
+        "$sessionId": {
+          ".read": "root.child('qr_sessions/' + $shopId + '/' + $sessionId).exists()",
+          "$orderId": {
+            ".write": "data.val() == null && root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'active'"
+          }
+        }
       }
     }
   }

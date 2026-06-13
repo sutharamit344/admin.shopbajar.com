@@ -16,18 +16,21 @@ service firebase.storage {
       allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
     }
     
-    // Allow write access to shop folder for authenticated users or admins
+    // Allow read access to shop folder publicly, write only if signed in
     match /shops/{shopId}/{allPaths=**} {
+      allow read: if true;
       allow write: if request.auth != null;
     }
 
-    // Allow authenticated users to upload to uploads/ folder (menu items, photo galleries, etc.)
+    // Allow read access to uploads/ folder publicly, write only if signed in
     match /uploads/{allPaths=**} {
+      allow read: if true;
       allow write: if request.auth != null;
     }
 
-    // Allow admins to upload to blogs/ folder
+    // Allow read access to blogs/ folder publicly, write only if admin
     match /blogs/{allPaths=**} {
+      allow read: if true;
       allow write: if isAdmin();
     }
   }

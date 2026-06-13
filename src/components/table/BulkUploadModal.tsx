@@ -150,7 +150,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({
         const jsonData = JSON.parse(jsonString);
         let data = Array.isArray(jsonData) ? jsonData : [jsonData];
         resolve(data);
-      } catch (error) {
+      } catch {
         reject(new Error("Invalid JSON format"));
       }
     });
@@ -174,7 +174,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({
           return obj;
         });
         resolve(rows);
-      } catch (error) {
+      } catch {
         reject(new Error("Invalid CSV format"));
       }
     });
@@ -223,7 +223,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({
         setColumnMapping(autoMapping);
       }
       setStep("preview");
-    } catch (error) {
+    } catch {
       toast.error("Failed to read file");
     }
   };
@@ -236,7 +236,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({
           const content = e.target?.result as string;
           const jsonData = JSON.parse(content);
           resolve(Array.isArray(jsonData) ? jsonData : [jsonData]);
-        } catch (error) {
+        } catch {
           reject(new Error("Invalid JSON format"));
         }
       };
@@ -260,7 +260,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({
             return obj;
           });
           resolve(rows);
-        } catch (error) { reject(new Error("Invalid CSV format")); }
+        } catch { reject(new Error("Invalid CSV format")); }
       };
       reader.readAsText(file);
     });
