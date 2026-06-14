@@ -16,10 +16,15 @@ service firebase.storage {
       allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
     }
     
-    // Allow read access to shop folder publicly, write only if signed in
+    // Allow read access to shop folder publicly, write only if the user is the shop owner (via Firestore lookup) or admin
     match /shops/{shopId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null;
+      // Restrict writes: only the shop owner (ownerId matches auth.uid) or an admin may write
+      allow write: if isAdmin() ||
+                   (
+                     request.auth != null &&
+                     firestore.get(/databases/(default)/documents/shops/$(shopId)).data.get('ownerId', null) == request.auth.uid
+                   );
     }
 
     // Allow read access to uploads/ folder publicly, write only if signed in

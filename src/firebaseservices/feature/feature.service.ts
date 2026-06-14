@@ -143,6 +143,17 @@ export const featureService = {
           category: "Ordering",
           trialDays: 14,
           status: "active" as const
+        },
+        {
+          featureKey: "table_booking",
+          title: "Table Reservations",
+          description: "Allow customers to pre-book tables from your shop profile. Includes a multi-step booking wizard with date selection, time slot availability, party size, and contact details. Manage all reservations — confirm, seat, reject, or mark no-show — from the Bookings console.",
+          icon: "CalendarDays",
+          price: 399,
+          billingCycle: "monthly",
+          category: "Reservations",
+          trialDays: 14,
+          status: "active" as const
         }
       ];
 

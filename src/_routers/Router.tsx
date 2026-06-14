@@ -13,6 +13,7 @@ import { LocationsPage } from "../pages/locations/LocationsPage";
 import { DatabasePage } from "../pages/database/DatabasePage";
 import { BlogFormPage } from "../pages/marketing/BlogFormPage";
 import { FeaturesMasterPage } from "../pages/features/FeaturesMasterPage";
+import { BookingsPage } from "../pages/bookings/BookingsPage";
 import { Layout } from "../components/layout/Layout";
 import { ProtectedRoute } from "./ProtectedRoute";
 
@@ -32,6 +33,7 @@ const MainRouter = () => {
         <Route path="/shops" element={<ShopsPage />} />
         <Route path="/shops/add" element={<AddShopPage />} />
         <Route path="/shops/edit/:id" element={<AddShopPage />} />
+        <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/subcategories" element={<SubCategoriesPage />} />
         <Route path="/clusters" element={<ClustersPage />} />

@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   HomeIcon,
   BuildingStorefrontIcon,
+  CalendarDaysIcon,
   TagIcon,
   MapIcon,
   UsersIcon,
@@ -18,6 +19,7 @@ import { toggleCollapsed } from "./sidebarSlice";
 const navigation = [
   { label: "Dashboard", path: "/", icon: HomeIcon },
   { label: "Shops", path: "/shops", icon: BuildingStorefrontIcon },
+  { label: "Table Bookings", path: "/bookings", icon: CalendarDaysIcon },
   { label: "Categories", path: "/categories", icon: TagIcon },
   { label: "Subcategories", path: "/subcategories", icon: TagIcon },
   { label: "Locations", path: "/locations", icon: MapPinIcon },
