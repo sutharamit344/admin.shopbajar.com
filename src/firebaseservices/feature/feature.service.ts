@@ -154,6 +154,17 @@ export const featureService = {
           category: "Reservations",
           trialDays: 14,
           status: "active" as const
+        },
+        {
+          featureKey: "appointment_booking",
+          title: "Service Appointments & Scheduling",
+          description: "Provide slot-based appointment booking for your services. Configure provider shifts, set concurrency limits, manage client profiles (CRM), and collect deposits/payments.",
+          icon: "CalendarDays",
+          price: 499,
+          billingCycle: "monthly",
+          category: "Appointments",
+          trialDays: 14,
+          status: "active" as const
         }
       ];
 

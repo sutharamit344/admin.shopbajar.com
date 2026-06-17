@@ -259,9 +259,13 @@ export const shopService = {
         where("slug", "==", cleanSlug)
       );
       const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) return true;
+      const activeMatches = querySnapshot.docs.filter((doc) => {
+        const data = doc.data();
+        return data.status !== "deleted" && data.isDeleted !== true;
+      });
+      if (activeMatches.length === 0) return true;
       if (currentShopId) {
-        const otherMatches = querySnapshot.docs.filter((doc) => doc.id !== currentShopId);
+        const otherMatches = activeMatches.filter((doc) => doc.id !== currentShopId);
         return otherMatches.length === 0;
       }
       return false;

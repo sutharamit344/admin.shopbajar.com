@@ -74,6 +74,7 @@ export const EditShopDrawer: React.FC = () => {
       secondaryColor: "#1A1F36",
       rating: "5.0",
       status: "approved",
+      isVerified: false,
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -124,6 +125,7 @@ export const EditShopDrawer: React.FC = () => {
         secondaryColor: data.secondaryColor || "#1A1F36",
         rating: data.rating || "5.0",
         status: data.status || "approved",
+        isVerified: !!data.isVerified,
       });
     }
   }, [data, open]);
@@ -436,7 +438,7 @@ export const EditShopDrawer: React.FC = () => {
                 onChange={formik.handleChange}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <FormInputField
                 label="Rating"
                 name="rating"
@@ -454,6 +456,16 @@ export const EditShopDrawer: React.FC = () => {
                   { value: "approved", label: "Approved" },
                   { value: "pending", label: "Pending" },
                   { value: "rejected", label: "Rejected" },
+                ]}
+              />
+              <FormSelectField
+                label="Verified"
+                name="isVerified"
+                value={String(formik.values.isVerified)}
+                onChange={(e) => formik.setFieldValue("isVerified", e.target.value === "true")}
+                options={[
+                  { value: "true", label: "Yes" },
+                  { value: "false", label: "No" },
                 ]}
               />
             </div>

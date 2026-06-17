@@ -1,5 +1,6 @@
 // src/pages/shops/AddShopPage.tsx
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
@@ -28,11 +29,44 @@ import {
   SparklesIcon,
   ShoppingBagIcon,
   TruckIcon,
+  PencilIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { slugify } from "../../utils/helper";
 import { shopService } from "../../firebaseservices/shop/shop.service";
 import { fetchAllLocations } from "../../store/locationSlice";
 import { fetchAllClusters } from "../clusters/clusterSlice";
+
+const isVideoUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false;
+  if (url.startsWith("data:")) {
+    return url.startsWith("data:video/");
+  }
+  const pathPart = url.split("?")[0].toLowerCase();
+  return (
+    pathPart.endsWith(".mp4") ||
+    pathPart.endsWith(".webm") ||
+    pathPart.endsWith(".ogg") ||
+    pathPart.endsWith(".mov") ||
+    pathPart.endsWith(".m4v") ||
+    pathPart.endsWith(".quicktime")
+  );
+};
+
+const countCatalogVideos = (menu: any[]): number => {
+  if (!menu) return 0;
+  let count = 0;
+  for (const cat of menu) {
+    if (cat.items) {
+      for (const item of cat.items) {
+        if (item.image && isVideoUrl(item.image)) {
+          count++;
+        }
+      }
+    }
+  }
+  return count;
+};
 import { fetchAllFeatures } from "../features/featureSlice";
 
 const validationSchema = Yup.object({
@@ -66,6 +100,27 @@ export const AddShopPage: React.FC = () => {
   
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
   const [isSlugCustom, setIsSlugCustom] = useState(false);
+
+  // Catalog Item Drawer state
+  const [editingItem, setEditingItem] = useState<{
+    catIndex: number;
+    itemIndex: number | null;
+    name: string;
+    price: string;
+    description: string;
+    image: string;
+    featured: boolean;
+    isNew: boolean;
+    diet: string;
+    trackStock: boolean;
+    stock: string;
+    isService: boolean;
+    serviceDuration: string;
+    highlights: string[];
+    highlightsLabel: string;
+  } | null>(null);
+
+  const [newHighlight, setNewHighlight] = useState("");
 
   useEffect(() => {
     dispatch(fetchAllLocations());
@@ -106,6 +161,7 @@ export const AddShopPage: React.FC = () => {
       secondaryColor: "#1A1F36",
       rating: "5.0",
       status: "approved",
+      isVerified: false,
       socialLinks: [] as { platform: string; url: string }[],
       openingHoursDetails: {
         monday: { isClosed: false, open: "09:00", close: "21:00" },
@@ -135,6 +191,14 @@ export const AddShopPage: React.FC = () => {
           image: string;
           featured: boolean;
           isNew?: boolean;
+          diet?: string;
+          stock?: string;
+          serviceDetails?: {
+            isService: boolean;
+            duration: number;
+          };
+          highlights?: string[];
+          highlightsLabel?: string;
         }[];
       }[],
     },
@@ -203,6 +267,7 @@ export const AddShopPage: React.FC = () => {
             secondaryColor: shop.secondaryColor || "#1A1F36",
             rating: shop.rating || "5.0",
             status: shop.status || "approved",
+            isVerified: !!shop.isVerified,
             socialLinks: Array.isArray(shop.socialLinks)
               ? shop.socialLinks
               : [],
@@ -462,35 +527,97 @@ export const AddShopPage: React.FC = () => {
   };
 
   const handleAddMenuItem = (catIndex: number) => {
-    const updated = [...formik.values.menu];
-    updated[catIndex] = {
-      ...updated[catIndex],
-      items: [
-        ...updated[catIndex].items,
-        { name: "", price: "", description: "", image: "", featured: false, isNew: true },
-      ],
-    };
-    formik.setFieldValue("menu", updated);
+    setEditingItem({
+      catIndex,
+      itemIndex: null,
+      name: "",
+      price: "",
+      description: "",
+      image: "",
+      featured: false,
+      isNew: true,
+      diet: "",
+      trackStock: false,
+      stock: "",
+      isService: false,
+      serviceDuration: "30",
+      highlights: [],
+      highlightsLabel: "Highlights",
+    });
+    setNewHighlight("");
+  };
+
+  const handleEditMenuItem = (catIndex: number, itemIndex: number) => {
+    const item = formik.values.menu[catIndex].items[itemIndex];
+    const hasStock = item.stock !== undefined && item.stock !== null && item.stock !== "";
+    const isServ = !!item.serviceDetails?.isService;
+    setEditingItem({
+      catIndex,
+      itemIndex,
+      name: item.name || "",
+      price: item.price !== undefined && item.price !== null ? item.price.toString() : "",
+      description: item.description || "",
+      image: item.image || "",
+      featured: !!item.featured,
+      isNew: item.isNew !== false,
+      diet: item.diet || "",
+      trackStock: hasStock,
+      stock: (hasStock && item.stock !== undefined && item.stock !== null) ? item.stock.toString() : "",
+      isService: isServ,
+      serviceDuration: item.serviceDetails?.duration?.toString() || "30",
+      highlights: item.highlights || [],
+      highlightsLabel: item.highlightsLabel || "Highlights",
+    });
+    setNewHighlight("");
   };
 
   const handleRemoveMenuItem = (catIndex: number, itemIndex: number) => {
-    const updated = [...formik.values.menu];
-    const items = updated[catIndex].items.filter((_, i) => i !== itemIndex);
-    updated[catIndex] = { ...updated[catIndex], items };
-    formik.setFieldValue("menu", updated);
+    if (confirm("Are you sure you want to delete this item?")) {
+      const updated = [...formik.values.menu];
+      const items = updated[catIndex].items.filter((_, i) => i !== itemIndex);
+      updated[catIndex] = { ...updated[catIndex], items };
+      formik.setFieldValue("menu", updated);
+    }
   };
 
-  const handleMenuItemChange = (
-    catIndex: number,
-    itemIndex: number,
-    field: string,
-    value: any,
-  ) => {
+  const handleSaveItem = () => {
+    if (!editingItem) return;
+    if (!editingItem.name.trim()) {
+      toast.error("Item Name is required.");
+      return;
+    }
     const updated = [...formik.values.menu];
-    const items = [...updated[catIndex].items];
-    items[itemIndex] = { ...items[itemIndex], [field]: value };
-    updated[catIndex] = { ...updated[catIndex], items };
+    const category = updated[editingItem.catIndex];
+    const items = [...category.items];
+
+    const itemData: any = {
+      name: editingItem.name.trim(),
+      price: editingItem.price !== "" ? Number(editingItem.price) : "",
+      description: editingItem.description.trim(),
+      image: editingItem.image,
+      featured: editingItem.featured,
+      isNew: editingItem.isNew,
+      diet: editingItem.diet || null,
+      stock: editingItem.trackStock && editingItem.stock !== "" ? Number(editingItem.stock) : null,
+      serviceDetails: editingItem.isService ? {
+        isService: true,
+        duration: Number(editingItem.serviceDuration) || 30
+      } : null,
+      highlights: editingItem.highlights,
+      highlightsLabel: editingItem.highlightsLabel.trim() || "Highlights",
+    };
+
+    if (editingItem.itemIndex === null) {
+      // Create new item
+      items.push(itemData);
+    } else {
+      // Edit existing item
+      items[editingItem.itemIndex] = itemData;
+    }
+
+    updated[editingItem.catIndex] = { ...category, items };
     formik.setFieldValue("menu", updated);
+    setEditingItem(null);
   };
 
   const tabs = [
@@ -942,7 +1069,7 @@ export const AddShopPage: React.FC = () => {
                       onChange={formik.handleChange}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                   <div className="grid grid-cols-3 gap-3">
                     <FormInputField
                       label="Rating"
                       name="rating"
@@ -962,6 +1089,16 @@ export const AddShopPage: React.FC = () => {
                         { value: "approved", label: "Approved" },
                         { value: "pending", label: "Pending" },
                         { value: "rejected", label: "Rejected" },
+                      ]}
+                    />
+                    <FormSelectField
+                      label="Verified"
+                      name="isVerified"
+                      value={String(formik.values.isVerified)}
+                      onChange={(e) => formik.setFieldValue("isVerified", e.target.value === "true")}
+                      options={[
+                        { value: "true", label: "Yes" },
+                        { value: "false", label: "No" },
                       ]}
                     />
                   </div>
@@ -1398,145 +1535,135 @@ export const AddShopPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Items Grid */}
+                    {/* Items List */}
                     <div className="space-y-2">
                       {category.items.length === 0 ? (
-                        <div className="text-center py-3 text-xs text-gray-400 italic bg-white rounded-md border border-gray-200/60">
+                        <div className="text-center py-6 text-xs text-gray-405 italic bg-white rounded-md border border-gray-200/60">
                           No items in this category. Click "Add Item" to add
                           products or services.
                         </div>
                       ) : (
-                        category.items.map((item, itemIndex) => (
-                          <div
-                            key={itemIndex}
-                            className="bg-white border border-gray-200/80 rounded-md p-2.5 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center"
-                          >
-                            {/* Image Upload */}
-                            <div className="md:col-span-2">
-                              <ImageUpload
-                                value={item.image}
-                                onChange={(url) =>
-                                  handleMenuItemChange(
-                                    catIndex,
-                                    itemIndex,
-                                    "image",
-                                    url,
-                                  )
-                                }
-                                folder="shops/catalog"
-                              />
-                            </div>
+                        <div className="bg-white rounded-md border border-gray-200 overflow-hidden shadow-2xs">
+                          <table className="min-w-full divide-y divide-gray-200 text-left">
+                            <thead className="bg-gray-50/70">
+                              <tr>
+                                <th scope="col" className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-16">
+                                  Preview
+                                </th>
+                                <th scope="col" className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                  Item Details
+                                </th>
+                                <th scope="col" className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-24">
+                                  Price
+                                </th>
+                                <th scope="col" className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-24">
+                                  Stock
+                                </th>
+                                <th scope="col" className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-24 text-right">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-150 bg-white">
+                              {category.items.map((item, itemIndex) => {
+                                const isVideo = item.image && isVideoUrl(item.image);
+                                const hasStock = item.stock !== undefined && item.stock !== null && item.stock !== "";
+                                const isServ = !!item.serviceDetails?.isService;
 
-                            {/* Item Details */}
-                            <div className="md:col-span-10 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
-                              <div className="md:col-span-3 space-y-0.5">
-                                <label className="text-[10px] text-gray-400 font-bold block">
-                                  Item Name
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. Garlic Bread"
-                                  value={item.name}
-                                  onChange={(e) =>
-                                    handleMenuItemChange(
-                                      catIndex,
-                                      itemIndex,
-                                      "name",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="w-full h-7 px-2 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none font-semibold"
-                                />
-                              </div>
-                              <div className="md:col-span-2 space-y-0.5">
-                                <label className="text-[10px] text-gray-400 font-bold block">
-                                  Price (₹)
-                                </label>
-                                <input
-                                  type="number"
-                                  placeholder="e.g. 150"
-                                  value={item.price}
-                                  onChange={(e) =>
-                                    handleMenuItemChange(
-                                      catIndex,
-                                      itemIndex,
-                                      "price",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="w-full h-7 px-2 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none font-bold text-primary-600"
-                                />
-                              </div>
-                              <div className="md:col-span-4 space-y-0.5">
-                                <label className="text-[10px] text-gray-400 font-bold block">
-                                  Description
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. Freshly baked with herbs"
-                                  value={item.description}
-                                  onChange={(e) =>
-                                    handleMenuItemChange(
-                                      catIndex,
-                                      itemIndex,
-                                      "description",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="w-full h-7 px-2 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                                />
-                              </div>
-                              <div className="md:col-span-3 flex items-center justify-between md:justify-end gap-2.5 pt-3 md:pt-0">
-                                <label className="flex items-center gap-1 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={item.featured}
-                                    onChange={(e) =>
-                                      handleMenuItemChange(
-                                        catIndex,
-                                        itemIndex,
-                                        "featured",
-                                        e.target.checked,
-                                      )
-                                    }
-                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-50 w-3.5 h-3.5"
-                                  />
-                                  <span className="text-[11px] font-bold text-gray-600">
-                                    Featured
-                                  </span>
-                                </label>
-                                <label className="flex items-center gap-1 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={item.isNew !== false}
-                                    onChange={(e) =>
-                                      handleMenuItemChange(
-                                        catIndex,
-                                        itemIndex,
-                                        "isNew",
-                                        e.target.checked,
-                                      )
-                                    }
-                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-50 w-3.5 h-3.5"
-                                  />
-                                  <span className="text-[11px] font-bold text-gray-600">
-                                    New
-                                  </span>
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveMenuItem(catIndex, itemIndex)
-                                  }
-                                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-all"
-                                  title="Delete Item"
-                                >
-                                  <TrashIcon className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))
+                                return (
+                                  <tr key={itemIndex} className="hover:bg-gray-50/30 transition-colors">
+                                    {/* Preview Thumbnail */}
+                                    <td className="px-3 py-2 shrink-0">
+                                      <div className="w-10 h-10 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0 relative">
+                                        {item.image ? (
+                                          isVideo ? (
+                                            <video src={item.image} className="w-full h-full object-cover" muted />
+                                          ) : (
+                                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                          )
+                                        ) : (
+                                          <ShoppingBagIcon className="w-4 h-4 text-gray-305" />
+                                        )}
+                                      </div>
+                                    </td>
+                                    {/* Name, Description, Badges */}
+                                    <td className="px-3 py-2">
+                                      <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-xs font-bold text-gray-800">{item.name || "Unnamed Item"}</span>
+                                          {item.diet === "veg" && (
+                                            <span className="px-1.5 py-0.2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-bold rounded">
+                                              Veg 🟢
+                                            </span>
+                                          )}
+                                          {item.diet === "nonveg" && (
+                                            <span className="px-1.5 py-0.2 bg-rose-50 border border-rose-200 text-rose-700 text-[9px] font-bold rounded">
+                                              Non-Veg 🔴
+                                            </span>
+                                          )}
+                                          {isServ && (
+                                            <span className="px-1.5 py-0.2 bg-blue-50 border border-blue-200 text-blue-700 text-[9px] font-bold rounded">
+                                              Service ({item.serviceDetails?.duration || 30}m)
+                                            </span>
+                                          )}
+                                          {item.featured && (
+                                            <span className="px-1.5 py-0.2 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-bold rounded">
+                                              Featured ⭐
+                                            </span>
+                                          )}
+                                          {item.isNew !== false && (
+                                            <span className="px-1.5 py-0.2 bg-purple-50 border border-purple-200 text-purple-700 text-[9px] font-bold rounded">
+                                              New ✨
+                                            </span>
+                                          )}
+                                        </div>
+                                        {item.description && (
+                                          <p className="text-[10px] text-gray-500 line-clamp-1 max-w-sm">
+                                            {item.description}
+                                          </p>
+                                        )}
+                                        {item.highlights && item.highlights.length > 0 && (
+                                          <p className="text-[9px] text-gray-400 font-medium italic mt-0.5">
+                                            {item.highlights.length} bullet points ({item.highlightsLabel || "Highlights"})
+                                          </p>
+                                        )}
+                                      </div>
+                                    </td>
+                                    {/* Price */}
+                                    <td className="px-3 py-2 text-xs font-bold text-primary-600">
+                                      {item.price ? `₹${item.price}` : "—"}
+                                    </td>
+                                    {/* Stock */}
+                                    <td className="px-3 py-2 text-xs font-medium text-gray-600">
+                                      {hasStock ? `${item.stock} units` : <span className="text-gray-400">Unlimited</span>}
+                                    </td>
+                                    {/* Action Buttons */}
+                                    <td className="px-3 py-2 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleEditMenuItem(catIndex, itemIndex)}
+                                          className="p-1 text-gray-500 hover:text-primary-600 hover:bg-gray-50 rounded transition-all border border-transparent hover:border-gray-200 shadow-3xs cursor-pointer"
+                                          title="Edit Item"
+                                        >
+                                          <PencilIcon className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveMenuItem(catIndex, itemIndex)}
+                                          className="p-1 text-red-500 hover:bg-red-50 rounded transition-all border border-transparent hover:border-red-100 shadow-3xs cursor-pointer"
+                                          title="Delete Item"
+                                        >
+                                          <TrashIcon className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1565,6 +1692,312 @@ export const AddShopPage: React.FC = () => {
           </Button>
         </div>
       </form>
+
+      {/* Catalog Item Slide-Over Drawer */}
+      {editingItem && (
+        <div className="fixed inset-0 z-[100] overflow-hidden">
+          <div 
+            className="absolute inset-0 bg-black/30 backdrop-blur-xs transition-opacity duration-300 ease-out" 
+            onClick={() => setEditingItem(null)} 
+          />
+          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full border-l border-gray-150">
+              {/* Drawer Header */}
+              <div className="px-5 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between shrink-0">
+                <div className="flex flex-col">
+                  <h3 className="text-xs font-bold text-gray-950 uppercase tracking-wider">
+                    {editingItem.itemIndex === null ? "Add Catalog Item" : "Edit Catalog Item"}
+                  </h3>
+                  <span className="text-[10px] text-gray-500 font-medium mt-0.5">
+                    Category: {formik.values.menu[editingItem.catIndex]?.name || `Category ${editingItem.catIndex + 1}`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-md p-1.5 text-gray-400 hover:text-gray-650 hover:bg-gray-100 transition-all focus:outline-none"
+                  onClick={() => setEditingItem(null)}
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Drawer Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {/* Image/Video Upload */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Item Image / Video
+                  </label>
+                  <ImageUpload
+                    value={editingItem.image}
+                    onChange={(url: string) => setEditingItem({ ...editingItem, image: url })}
+                    folder="shops/catalog"
+                    beforeUpload={async (file: File) => {
+                      if (file.type.startsWith("video/")) {
+                        const originalImage = editingItem.image;
+                        const originalIsVideo = originalImage && isVideoUrl(originalImage);
+                        const videoCount = countCatalogVideos(formik.values.menu);
+                        if (videoCount >= 5 && !originalIsVideo) {
+                          toast.error("Maximum 5 videos allowed per shop catalog.");
+                          return false;
+                        }
+                      }
+                      return true;
+                    }}
+                  />
+                </div>
+
+                {/* Item Name */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Item Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Organic Avocados"
+                    value={editingItem.name}
+                    onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                    className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-primary-500 focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                {/* Price */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 250"
+                    value={editingItem.price}
+                    onChange={(e) => setEditingItem({ ...editingItem, price: e.target.value })}
+                    className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-primary-500 focus:outline-none focus:border-primary-500 font-bold text-primary-600"
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Description
+                  </label>
+                  <textarea
+                    placeholder="e.g. Fresh organically grown Hass avocados..."
+                    rows={3}
+                    value={editingItem.description}
+                    onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                    className="w-full p-2.5 bg-white border border-gray-300 rounded-md text-xs font-medium focus:ring-1 focus:ring-primary-500 focus:outline-none focus:border-primary-500 leading-normal"
+                  />
+                </div>
+
+                {/* Diet Type */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Diet Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-md border border-gray-200">
+                    {[
+                      { value: "", label: "None" },
+                      { value: "veg", label: "Veg 🟢" },
+                      { value: "nonveg", label: "Non-Veg 🔴" }
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setEditingItem({ ...editingItem, diet: opt.value })}
+                        className={`py-1.5 text-center rounded text-xs font-bold transition-all ${
+                          editingItem.diet === opt.value
+                            ? "bg-white text-gray-900 shadow-xs border border-gray-200/50"
+                            : "text-gray-500 hover:text-gray-800"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Featured & New */}
+                <div className="flex items-center gap-6 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editingItem.featured}
+                      onChange={(e) => setEditingItem({ ...editingItem, featured: e.target.checked })}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-50 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-gray-700">Featured Item ⭐</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editingItem.isNew}
+                      onChange={(e) => setEditingItem({ ...editingItem, isNew: e.target.checked })}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-50 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-gray-700">Mark as New ✨</span>
+                  </label>
+                </div>
+
+                {/* Stock Tracking */}
+                <div className="p-3 bg-gray-50 rounded-md border border-gray-200/60 space-y-2.5">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editingItem.trackStock}
+                      onChange={(e) => setEditingItem({ 
+                        ...editingItem, 
+                        trackStock: e.target.checked, 
+                        stock: e.target.checked ? (editingItem.stock || "0") : "" 
+                      })}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-50 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-gray-805">Track Catalog Inventory</span>
+                  </label>
+                  {editingItem.trackStock && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                        Available Quantity
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 50"
+                        value={editingItem.stock}
+                        onChange={(e) => setEditingItem({ ...editingItem, stock: e.target.value })}
+                        className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Service Details */}
+                <div className="p-3 bg-gray-50 rounded-md border border-gray-200/60 space-y-2.5">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editingItem.isService}
+                      onChange={(e) => setEditingItem({ ...editingItem, isService: e.target.checked })}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-50 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-gray-805">This item is a Service</span>
+                  </label>
+                  {editingItem.isService && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                        Duration (Minutes)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 30"
+                        value={editingItem.serviceDuration}
+                        onChange={(e) => setEditingItem({ ...editingItem, serviceDuration: e.target.value })}
+                        className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Highlights Section */}
+                <div className="p-3 bg-gray-50 rounded-md border border-gray-200/60 space-y-2.5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                      Bullet Points Label
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Highlights, Specs, Features"
+                      value={editingItem.highlightsLabel}
+                      onChange={(e) => setEditingItem({ ...editingItem, highlightsLabel: e.target.value })}
+                      className="w-full h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                      Add Bullet Points / Specifications
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. Pure leather, 1 year warranty"
+                        value={newHighlight}
+                        onChange={(e) => setNewHighlight(e.target.value)}
+                        className="flex-1 h-8 px-2.5 bg-white border border-gray-300 rounded-md text-xs font-medium focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newHighlight.trim()) {
+                              setEditingItem({
+                                ...editingItem,
+                                highlights: [...editingItem.highlights, newHighlight.trim()]
+                              });
+                              setNewHighlight("");
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newHighlight.trim()) {
+                            setEditingItem({
+                              ...editingItem,
+                              highlights: [...editingItem.highlights, newHighlight.trim()]
+                            });
+                            setNewHighlight("");
+                          }
+                        }}
+                        className="px-3 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-all shrink-0"
+                      >
+                        Add
+                      </button>
+                    </div>
+
+                    {editingItem.highlights.length > 0 && (
+                      <ul className="space-y-1.5 pt-1.5">
+                        {editingItem.highlights.map((hl, idx) => (
+                          <li key={idx} className="flex items-center justify-between gap-2 p-1.5 bg-white rounded border border-gray-200 text-xs">
+                            <span className="text-gray-700 truncate font-medium">• {hl}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingItem({
+                                  ...editingItem,
+                                  highlights: editingItem.highlights.filter((_, i) => i !== idx)
+                                });
+                              }}
+                              className="text-red-500 hover:text-red-650 hover:bg-red-50 p-1 rounded transition-all shrink-0"
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Drawer Footer */}
+              <div className="px-5 py-4 border-t border-gray-200 bg-gray-50 flex gap-3 shrink-0">
+                <button
+                  type="button"
+                  className="flex-1 py-1.5 border border-gray-300 rounded-md text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 transition-all cursor-pointer"
+                  onClick={() => setEditingItem(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  onClick={handleSaveItem}
+                >
+                  Save Item
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

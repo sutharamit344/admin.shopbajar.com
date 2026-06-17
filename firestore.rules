@@ -59,6 +59,15 @@ service cloud.firestore {
         allow create: if isSignedIn() && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;
         allow delete: if isAdmin();
       }
+
+      match /staff/{staffId} {
+        allow read: if true;
+        allow write: if isShopOwner(shopId) || isAdmin();
+      }
+
+      match /customers/{customerId} {
+        allow read, write: if isShopOwner(shopId) || isAdmin();
+      }
     }
 
     // 2. Master Data (Read: All, Write: Admin Only)

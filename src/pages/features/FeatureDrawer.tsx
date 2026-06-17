@@ -106,6 +106,11 @@ export const FeatureDrawer: React.FC = () => {
             onChange={formik.handleChange}
             error={formik.touched.category && formik.errors.category ? (formik.errors.category as string) : ""}
             options={[
+              { value: "Inquiry", label: "Inquiry" },
+              { value: "Billing", label: "Billing" },
+              { value: "Ordering", label: "Ordering" },
+              { value: "Reservations", label: "Reservations" },
+              { value: "Appointments", label: "Appointments" },
               { value: "Core E-Commerce", label: "Core E-Commerce" },
               { value: "Insights", label: "Insights" },
               { value: "Growth", label: "Growth" },
@@ -168,6 +173,11 @@ export const FeatureDrawer: React.FC = () => {
             onChange={formik.handleChange}
             error={formik.touched.icon && formik.errors.icon ? (formik.errors.icon as string) : ""}
             options={[
+              { value: "Phone", label: "Phone" },
+              { value: "LayoutDashboard", label: "Dashboard Layout" },
+              { value: "Calculator", label: "Calculator" },
+              { value: "QrCode", label: "QR Code" },
+              { value: "CalendarDays", label: "Calendar Days" },
               { value: "ShoppingBag", label: "Shopping Bag" },
               { value: "TrendingUp", label: "Trending Up Chart" },
               { value: "Zap", label: "Lightning Zap" },

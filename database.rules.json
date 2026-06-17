@@ -3,10 +3,10 @@
     "qr_tables": {
       "$shopId": {
         ".read": true,
-        ".write": "auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null)",
         "$tableId": {
+          ".write": "auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null)",
           "currentSessionId": {
-            ".write": "auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null)"
+            ".write": "data.val() == null || newData.val() == null || (auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null))"
           }
         }
       }
@@ -15,10 +15,10 @@
       "$shopId": {
         ".read": true,
         "$sessionId": {
-          ".write": "auth != null && (data.val() == null || data.child('status').val() === 'pending' || data.child('status').val() === 'active') && (newData.val() == null || newData.child('status').val() === 'closed' || newData.child('status').val() === 'rejected' || auth.token.shopId === $shopId || auth.token.shopId == null)",
+          ".write": "data.val() == null || (auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null))",
           "guests": {
             "$guestId": {
-              ".write": "auth != null && (root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'active' || root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'pending')"
+              ".write": "root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'active' || root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'pending'"
             }
           }
         }
@@ -26,10 +26,11 @@
     },
     "qr_orders": {
       "$shopId": {
+        ".read": "auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null)",
         "$sessionId": {
           ".read": "root.child('qr_sessions/' + $shopId + '/' + $sessionId).exists()",
           "$orderId": {
-            ".write": "auth != null && data.val() == null && root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'active'"
+            ".write": "(data.val() == null && root.child('qr_sessions/' + $shopId + '/' + $sessionId + '/status').val() === 'active') || (auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null))"
           }
         }
       }
@@ -41,7 +42,16 @@
         ".read": true,
         "$bookingId": {
           ".read": true,
-          ".write": "data.val() == null || (auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null))"
+          ".write": "data.val() == null || (auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null)) || (data.child('status').val() === 'pending' && newData.child('status').val() === 'confirmed' && newData.child('paymentStatus').val() === 'paid' && newData.child('paymentTxnId').exists())"
+        }
+      }
+    },
+    "appointment_bookings": {
+      "$shopId": {
+        ".read": true,
+        "$bookingId": {
+          ".read": true,
+          ".write": "data.val() == null || (auth != null && (auth.token.shopId === $shopId || auth.token.shopId == null)) || (data.child('status').val() === 'pending' && newData.child('status').val() === 'confirmed' && newData.child('paymentStatus').val() === 'paid' && newData.child('paymentTxnId').exists())"
         }
       }
     }

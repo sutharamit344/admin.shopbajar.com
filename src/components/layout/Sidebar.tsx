@@ -24,7 +24,7 @@ const navigation = [
   { label: "Subcategories", path: "/subcategories", icon: TagIcon },
   { label: "Locations", path: "/locations", icon: MapPinIcon },
   { label: "Clusters", path: "/clusters", icon: MapIcon },
-  { label: "Features Master", path: "/features", icon: TagIcon },
+  { label: "Features", path: "/features", icon: TagIcon },
   { label: "Blogs", path: "/marketing/blogs", icon: MegaphoneIcon },
   { label: "Inquiries", path: "/reports/inquiries", icon: ChartBarIcon },
   { label: "Activity Logs", path: "/reports/logs", icon: ShieldCheckIcon },
@@ -41,13 +41,15 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`bg-gray-900 text-white h-screen fixed left-0 top-0 transition-all duration-300 flex flex-col z-20 ${collapsed ? "w-16" : "w-64"
-        }`}
+      className={`bg-gray-900 text-white h-screen fixed left-0 top-0 transition-all duration-300 flex flex-col z-20 ${
+        collapsed ? "w-16" : "w-64"
+      }`}
     >
       {/* Logo */}
       <div
-        className={`flex items-center h-16 border-b border-gray-800 ${!collapsed ? "px-5 justify-between" : "justify-center"
-          }`}
+        className={`flex items-center h-16 border-b border-gray-800 ${
+          !collapsed ? "px-5 justify-between" : "justify-center"
+        }`}
       >
         {!collapsed ? (
           <span className="text-xl font-bold text-white">Shop Bajar Admin</span>
@@ -76,9 +78,10 @@ export const Sidebar: React.FC = () => {
             key={item.label}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 transition-colors ${isActive
-                ? "bg-primary-800 text-white border-l-4 border-secondary-500"
-                : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              `flex items-center gap-3 px-4 py-3 transition-colors ${
+                isActive
+                  ? "bg-primary-800 text-white border-l-4 border-secondary-500"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
               }`
             }
           >
