@@ -80,7 +80,7 @@ const validationSchema = Yup.object({
     .required("WhatsApp number is required"),
   ownerEmail: Yup.string()
     .email("Invalid email address")
-    .required("Owner email is required"),
+    .optional(),
 });
 
 export const AddShopPage: React.FC = () => {
@@ -1028,7 +1028,7 @@ export const AddShopPage: React.FC = () => {
                     required
                   />
                   <FormInputField
-                    label="Owner Email"
+                    label="Owner Email (Optional)"
                     name="ownerEmail"
                     type="email"
                     placeholder="owner@example.com"
@@ -1040,7 +1040,6 @@ export const AddShopPage: React.FC = () => {
                         ? formik.errors.ownerEmail
                         : ""
                     }
-                    required
                   />
                 </div>
               </div>

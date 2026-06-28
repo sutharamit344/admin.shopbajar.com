@@ -29,7 +29,7 @@ const validationSchema = Yup.object({
     .required("WhatsApp number is required"),
   ownerEmail: Yup.string()
     .email("Invalid email address")
-    .required("Owner Email is required"),
+    .optional(),
 });
 
 export const EditShopDrawer: React.FC = () => {
@@ -417,7 +417,7 @@ export const EditShopDrawer: React.FC = () => {
               prefix={getCountryCode(formik.values.country)}
             />
             <FormInputField
-              label="Email"
+              label="Email (Optional)"
               name="ownerEmail"
               value={formik.values.ownerEmail}
               onChange={formik.handleChange}
